@@ -1,38 +1,28 @@
 import streamlit as st
 import cv2
 import mediapipe as mp
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 
-st.title("🧠 Pose Detection (MediaPipe + Streamlit)")
+st.title("🧠 Pose Detection (Browser Camera)")
 
-# Initialize MediaPipe
 mp_pose = mp.solutions.pose
 mp_draw = mp.solutions.drawing_utils
-pose = mp_pose.Pose()
 
-# Start webcam
-run = st.checkbox("Start Camera")
+class PoseDetector(VideoTransformerBase):
+    def __init__(self):
+        self.pose = mp_pose.Pose()
 
-FRAME_WINDOW = st.image([])
+    def transform(self, frame):
+        img = frame.to_ndarray(format="bgr24")
 
-cap = cv2.VideoCapture(0)
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        result = self.pose.process(rgb)
 
-while run:
-    ret, frame = cap.read()
-    if not ret:
-        st.write("Camera not working")
-        break
+        if result.pose_landmarks:
+            mp_draw.draw_landmarks(
+                img, result.pose_landmarks, mp_pose.POSE_CONNECTIONS
+            )
 
-    # Convert to RGB
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    result = pose.process(rgb)
+        return img
 
-    # Draw landmarks
-    if result.pose_landmarks:
-        mp_draw.draw_landmarks(
-            frame, result.pose_landmarks, mp_pose.POSE_CONNECTIONS
-        )
-
-    # Show frame in Streamlit
-    FRAME_WINDOW.image(frame, channels="BGR")
-
-cap.release()
+webrtc_streamer(key="pose-detection", video_transformer_factory=PoseDetector)
