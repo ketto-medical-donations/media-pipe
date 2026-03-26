@@ -5,23 +5,30 @@ from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 
 st.title("🧠 Pose Detection (Browser Camera)")
 
-# NEW mediapipe import
-from mediapipe.tasks.python import vision
-from mediapipe.tasks.python.vision import PoseLandmarker, PoseLandmarkerOptions
-from mediapipe.tasks import python
+# ✅ FIXED import (old API access)
+from mediapipe.python.solutions import pose
+from mediapipe.python.solutions import drawing_utils
 
-BaseOptions = python.BaseOptions
+mp_pose = pose
+mp_draw = drawing_utils
+
 
 class PoseDetector(VideoTransformerBase):
     def __init__(self):
-        options = PoseLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path="pose_landmarker.task"),
-            running_mode=vision.RunningMode.VIDEO
-        )
-        self.detector = PoseLandmarker.create_from_options(options)
+        self.pose = mp_pose.Pose()
 
     def transform(self, frame):
         img = frame.to_ndarray(format="bgr24")
-        return img  # (basic version for now)
+
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        result = self.pose.process(rgb)
+
+        if result.pose_landmarks:
+            mp_draw.draw_landmarks(
+                img, result.pose_landmarks, mp_pose.POSE_CONNECTIONS
+            )
+
+        return img
+
 
 webrtc_streamer(key="pose", video_transformer_factory=PoseDetector)
